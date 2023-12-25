@@ -1,33 +1,85 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import mongoose from "mongoose";
-const cors = require("cors");
+import cors from "cors";
 import User from "./models/User";
 
 mongoose
   .connect(
     "mongodb+srv://dennizyilmaz:ipbdj4bVo6ShHyay@cluster0.imtbs3g.mongodb.net/labb3?retryWrites=true&w=majority"
   )
-  .then(() => console.log("Ansluten till MongoDB"))
-  .catch((err) => console.error("Kunde inte ansluta till MongoDB", err));
+  .then(() => console.log("Ansluten till databasen"))
+  .catch((err) => console.error("Kunde inte ansluta till databasen.", err));
 
 const app = express();
-const port = 3001; // Välj en lämplig port
+const port = 3001;
 
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("Hello World!");
+app.post("/api/users/create", async (req: Request, res: Response) => {
+  const { username, password } = req.body;
+
+  try {
+    const existingUser = await User.findOne({ username: username });
+    if (existingUser) {
+      return res
+        .status(400)
+        .json({ message: "Användarnamnet är redan taget." });
+    }
+
+    const newUser = new User({ username, password });
+    await newUser.save();
+    res.status(201).json({ message: "Användaren har skapats." });
+  } catch (error) {
+    res.status(500).json({ message: error });
+  }
 });
 
-app.post("/api/users", async (req, res) => {
+app.put("/api/users/change", async (req: Request, res: Response) => {
+  const { username, currentPassword, newPassword } = req.body;
+
   try {
-    // Skapa en ny användare med datan från request body
-    const newUser = new User(req.body);
-    // Spara användaren i databasen
-    await User.create(req.body);
-    // Skicka tillbaka den sparade användaren som svar
-    res.status(201).json(newUser);
+    const user = await User.findOne({ username: username });
+    if (!user) {
+      return res.status(404).json({ message: "Användaren hittades inte" });
+    }
+
+    if (user.password !== currentPassword) {
+      return res
+        .status(403)
+        .json({ message: "Nuvarande lösenord är felaktigt" });
+    }
+
+    user.password = newPassword;
+    await user.save();
+    res.status(201).json({ message: "Lösenord ändrat" });
+  } catch (error) {
+    res.status(500).json({ message: error });
+  }
+});
+
+app.delete(
+  "/api/users/delete:username",
+  async (req: Request, res: Response) => {
+    const { username } = req.params;
+
+    try {
+      const user = await User.findOneAndDelete({ username: username });
+      if (!user) {
+        return res.status(404).json({ message: "Användare hittades inte" });
+      }
+
+      res.status(201).json({ message: "Användaren har tagits bort" });
+    } catch (error) {
+      res.status(500).json({ message: error });
+    }
+  }
+);
+
+app.get("/api/users/get", async (req: Request, res: Response) => {
+  try {
+    const users = await User.find({});
+    res.json(users);
   } catch (error) {
     res.status(500).json({ message: error });
   }
