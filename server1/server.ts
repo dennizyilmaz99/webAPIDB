@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import User from "./models/User";
+import User from "./models/User.js";
 
 mongoose
   .connect(
